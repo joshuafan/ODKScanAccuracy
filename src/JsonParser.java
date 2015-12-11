@@ -12,7 +12,8 @@ public class JsonParser {
 	// The indices of the JSON array that we are examining. NOTE that the values
 	// of these indexes are ONE LESS than the "value" field in the actual JSON
 	// document for each entry, to account for zero-based indexing.
-	private static final int[] JSON_ARRAY_INDEXES = { 5, // age
+	private static final int[] JSON_ARRAY_INDEXES = { 3, // client ID
+	        5, // age
 	        7, // EDD
 	        8, // num_preg
 	        9, // live_births
@@ -53,7 +54,6 @@ public class JsonParser {
 		// corresponding object, and store its "value" in the list.
 		for (int i = 0; i < JSON_ARRAY_INDEXES.length; i++) {
 			JsonObject currentObject = array.getJsonObject(JSON_ARRAY_INDEXES[i]);
-			System.out.println(array.size());
 			System.out.println("JSON Index: " + (JSON_ARRAY_INDEXES[i]));
 			System.out.println("Current object: " + currentObject);
 			String classificationValue = currentObject.getString("value");
