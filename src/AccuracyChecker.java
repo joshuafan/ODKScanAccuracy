@@ -4,12 +4,24 @@ import java.util.*;
 
 public class AccuracyChecker {
 	private static final String CURRENT_FOLDER_PATH = "C:\\Users\\Joshua\\Downloads\\scanOutput";
-	private static final String[] EXCEL_DATA_COLUMNS = { "P" }; // "W", "AH",
-	                                                            // "AQ", "BZ",
-	                                                            // "CC", "CL",
-	                                                            // "CX", "DM",
-	                                                            // "FD", "GR",
-	// "BY", "BR", "EI", "GD" };
+
+	// The letters of the Excel columns to check
+	private static final String[] EXCEL_DATA_COLUMNS = { "P", // client ID
+	        "AA", // age
+	        "AP", // EDD
+	        "BB", // num_preg
+	        "BM", // live_births
+	        "BY", // regCCPF (bubble)
+	        "CK", // CCPF_form (bubble)
+	        "CZ", // monthpreg_ANC
+	        "DH", // ANC_v1
+	        "EB", // ANC_v3
+	        "EW", // TTV2
+	        "GD", // health_cond (bubble many)
+	        "HF", // date_delivery
+	        "IY", // V1_topics (bubble many)
+	        "JH" // V2_date
+	};
 
 	public static void main(String[] args) {
 		String correctFileName = "src/data/Master Excel_with column codes_a.xlsx";
@@ -89,25 +101,72 @@ public class AccuracyChecker {
 		}
 	}
 
+	/**
+	 * For a single instance of a form, compares the correct values of the form
+	 * (passed in as "expectedResult") with the results obtained by Scan after
+	 * it processes the form (passed in as "actualResult"). Note that
+	 * "actualResult" and "expectedResult" must have corresponding indexes; for
+	 * example, index 1 of actualResult and index 1 of expectedResult must
+	 * contain the result of the same field.
+	 * 
+	 * @requires No parameters are null, actualResult.size() ==
+	 *           expectedResult.size(), numCorrect.length ==
+	 *           actualResult.size(), numTotal.length == actualResult.size()
+	 * @param actualResult List of form values produced by Scan
+	 * @param expectedResult List of correct/expected form values
+	 * @param numCorrect An output array that will hold the number of correct
+	 *        digits for each field.
+	 * @param numTotal An output array that will hold the number of total
+	 *        characters for each field.
+	 */
 	public static void compareResults(List<String> actualResult, List<String> expectedResult, int[] numCorrect,
 	        int[] numTotal) {
 		assert actualResult.size() == expectedResult.size();
+
+		// Loop through each field in the form
 		for (int i = 0; i < expectedResult.size(); i++) {
+
+			// Grab the correct expected value for that field in the form, as
+			// well as the value that Scan produced
 			String actual = trimTrailingZeroes(actualResult.get(i));
 			String expected = trimTrailingZeroes(expectedResult.get(i));
 			System.out.println("Field " + i + ": actual = " + actual + ", expected = " + expected);
-			// If the result contains a slash, assume that it is a date
-			if (actual.contains("/")) {
+
+			// If either the expected or actual value of that field is null or
+			// empty, move on to the next field
+			if (actual == null || actual.length() == 0 || actual.equals("null") || expected == null
+			        || expected.length() == 0 || expected.equals("null")) {
+				continue;
+			}
+
+			// If the strings represent dates, process them
+			if (isDate(actual)) {
 				String[] actualDate = actual.split("/");
-				String[] expectedDate = actual.split("/");
-				if (actualDate.length == 3 && expectedDate.length == 3) {
+				String[] expectedDate = expected.split("/");
+				if (isDate(expected)) {
 					for (int j = 0; j < actualDate.length; j++) {
-						int[] comparison = compareNumberStrings(actualDate[j], expectedDate[j]);
+						String actualDateSection = actualDate[j];
+						String expectedDateSection = expectedDate[j];
+
+						// Handle the special case where the year is a 4-digit
+						// string. Since the data was recorded inconsistently,
+						// we will only compare the last two digits of the year
+						// in this case.
+						if (j == 2) {
+							if (actualDateSection.length() == 4) {
+								actualDateSection = actualDateSection.substring(2);
+							}
+							if (expectedDateSection.length() == 4) {
+								expectedDateSection = expectedDateSection.substring(2);
+							}
+						}
+
+						int[] comparison = compareNumberStrings(actualDateSection, expectedDateSection);
 						numCorrect[i] += comparison[0];
 						numTotal[i] += comparison[1];
 					}
 				} else {
-					System.out.println("Date did not have two slashes: " + actual);
+					System.out.println("Expected date isn't formatted as a date: " + expected);
 					throw new IllegalArgumentException();
 				}
 			} else if (actual.charAt(0) == '[') {
@@ -122,9 +181,6 @@ public class AccuracyChecker {
 				numCorrect[i] += comparison[0];
 				numTotal[i] += comparison[1];
 			}
-		}
-
-		for (int i = 0; i < numCorrect.length; i++) {
 			System.out.println("Field " + i + ": Correct = " + numCorrect[i] + ", Total = " + numTotal[i]);
 		}
 	}
@@ -160,6 +216,8 @@ public class AccuracyChecker {
 				expectedIndex--;
 			}
 		}
+		System.out.println("Comparing \"" + actual + "\" with \"" + expected + "\". Correct = " + numSame + ", Total = "
+		        + numTotal);
 		return new int[] { numSame, numTotal };
 	}
 
@@ -175,9 +233,41 @@ public class AccuracyChecker {
 			return null;
 		}
 		int firstNonZeroCharIndex = 0;
-		while (firstNonZeroCharIndex < s.length() && s.charAt(firstNonZeroCharIndex) == '0') {
+
+		// If the string is just "0", then retain that single zero. Otherwise,
+		// chop off all zeroes.
+		while (firstNonZeroCharIndex < s.length() - 1 && s.charAt(firstNonZeroCharIndex) == '0') {
 			firstNonZeroCharIndex++;
 		}
 		return s.substring(firstNonZeroCharIndex);
+	}
+
+	/**
+	 * Attempts to determine if the given string represents a date.
+	 */
+	public static boolean isDate(String s) {
+		if (s == null || s.length() <= 2) {
+			return false;
+		}
+		String[] parts = s.split("/");
+		if (parts.length != 3) {
+			return false;
+		}
+		for (int i = 0; i < parts.length; i++) {
+			if (parts[i].length() > 4 || parts[i].length() < 1) {
+				return false;
+			}
+			for (int j = 0; j < parts[i].length(); j++) {
+				char currentCharacter = parts[i].charAt(j);
+
+				// If any character that is not a digit or space is found,
+				// return false.
+				if (currentCharacter != ' ' && (currentCharacter > '9' || currentCharacter < '0')) {
+					return false;
+				}
+			}
+		}
+		return true;
+
 	}
 }

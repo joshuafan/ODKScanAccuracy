@@ -15,13 +15,18 @@ public class ExcelParser {
 		Map<String, List<String>> data = new HashMap<String, List<String>>();
 		try {
 			XSSFWorkbook wb = ExcelParser.readFile(file);
-			String[] sheetNames = new String[] { "#2", "#3" };
+			String[] sheetNames = new String[] { "#3" };
 
 			// For each sheet, iterate through all rows except for the 0th row
 			for (String sheetName : sheetNames) {
 				XSSFSheet sheet = wb.getSheet(sheetName);
 				int rows = sheet.getPhysicalNumberOfRows();
-
+				XSSFRow firstRow = sheet.getRow(0);
+				System.out.println("COLUMNS:");
+				for (String colLetters : dataColumns) {
+					int columnIndex = toIndex(colLetters);
+					System.out.println(getStringCellContent(firstRow.getCell(columnIndex)));
+				}
 				for (int r = 1; r < rows; r++) {
 					List<String> currentRowData = new ArrayList<String>();
 					XSSFRow row = sheet.getRow(r);
@@ -40,7 +45,6 @@ public class ExcelParser {
 						String value = getStringCellContent(cell);
 						currentRowData.add(value);
 					}
-					System.out.println("Processing client id " + clientId + " in excel document.");
 					// Add this row to the map (with the clientID as a key)
 					data.put(clientId, currentRowData);
 				}
@@ -92,17 +96,30 @@ public class ExcelParser {
 		return value;
 	}
 
+	/**
+	 * Converts an Excel column index (e.g. BD) to its integer index (if the
+	 * Excel table is treated as a zero-based 2-D array)
+	 * 
+	 * @param columnLetters The letter-name of the column (e.g. BD)
+	 * @requires columnLetters is a valid Excel column index and contains only
+	 *           upper-case alphabetic characters
+	 * @return The integer index of the column
+	 */
 	private static int toIndex(String columnLetters) {
 		int total = 0;
 		int power = 1;
 		for (int i = columnLetters.length() - 1; i >= 0; i--) {
 			char letter = columnLetters.charAt(i);
+			if (letter < 'A' || letter > 'Z') {
+				throw new IllegalArgumentException("Column index " + columnLetters
+				        + " is not a valid Excel column index because it contains an illegal character " + letter
+				        + ".");
+			}
 			int letterIndex = letter - 'A' + 1;
 			total += (letterIndex * power);
 			power *= 26;
 		}
 		total--;
-		System.out.println("Column " + columnLetters + " to " + total);
 		return total;
 	}
 }
