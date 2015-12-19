@@ -2,31 +2,69 @@ import java.io.*;
 import java.nio.file.*;
 import java.util.*;
 
+/**
+ * This program compares the data that Scan read from some forms (which is
+ * contained in an output folder) to the actual correct values of the form
+ * (listed in an Excel file). Then, prints out statistics on how accurately Scan
+ * was able to read/process the forms.
+ * 
+ * Note: for this program to build, you will need to download Apache's POI Excel
+ * API (https://poi.apache.org/download.html) and the JSON Processing API
+ * (https://jsonp.java.net/download.html), and reference those in the project.
+ * 
+ * In particular, you will need to reference these libraries:
+ * 
+ * poi-3.13/poi-3.13-20150929.jar, poi-3.13/poi-ooxml-3.13-20150929.jar,
+ * poi-3.13/poi-ooxml-schemas-3.13-20150929.jar,
+ * poi-3.13/ooxml-lib/xmlbeans-2.6.0.jar, javax.json-api-1.0.jar,
+ * javax.json-1.0.4.jar
+ */
 public class AccuracyChecker {
-	private static final String CURRENT_FOLDER_PATH = "C:\\Users\\Joshua\\Downloads\\scanOutput";
+	// private static final String CURRENT_FOLDER_PATH =
+	// "C:\\Users\\Joshua\\Downloads\\scanOutput";
 
 	// The letters of the Excel columns to check
-	private static final String[] EXCEL_DATA_COLUMNS = { "P", // client ID
-	        "AA", // age
-	        "AP", // EDD
-	        "BB", // num_preg
-	        "BM", // live_births
-	        "BY", // regCCPF (bubble)
+	private static final String[] EXCEL_DATA_COLUMNS = { /*"P", // client ID
+	                                                     "AA", // age
+	                                                     "AP", // EDD
+	                                                     "BB", // num_preg
+	                                                     "BM", // live_births
+	                                                     "BY", // regCCPF (bubble)*/
 	        "CK", // CCPF_form (bubble)
-	        "CZ", // monthpreg_ANC
-	        "DH", // ANC_v1
-	        "EB", // ANC_v3
-	        "EW", // TTV2
-	        "GD", // health_cond (bubble many)
-	        "HF", // date_delivery
-	        "IY", // V1_topics (bubble many)
-	        "JH" // V2_date
+			/*"CZ", // monthpreg_ANC
+			"DH", // ANC_v1
+			"EB", // ANC_v3
+			"EW", // TTV2
+			"GD", // health_cond (bubble many)
+			"HF", // date_delivery
+			"IY", // V1_topics (bubble many)
+			"JH" // V2_date*/
 	};
 
+	/**
+	 * Runs the Scan accuracy checker.
+	 * 
+	 * Note: for this program to build, you will need to download the Excel API
+	 * (https://poi.apache.org/download.html) and JSON APIs
+	 * (https://jsonp.java.net/download.html) for Java.
+	 * 
+	 * Command-line arguments:
+	 * 
+	 * [0]: The name of the Excel file.
+	 * 
+	 * [1]: The path to the root of the folder containing the Scan output. The
+	 * folder should contain sub-folders for each form that was scanned.
+	 */
 	public static void main(String[] args) {
-		String correctFileName = "src/data/Master Excel_with column codes_a.xlsx";
+		if (args.length != 2) {
+			System.out.println("Usage: <Excel file name> <Root of scan output folder>");
+			System.exit(1);
+		}
+		String correctFileName = args[0];
+		String scanOutputRoot = args[1];
+		// "src/data/Master Excel_with column codes_a.xlsx";
 		Map<String, List<String>> data = ExcelParser.parseCorrectFile(correctFileName, EXCEL_DATA_COLUMNS);
-		crawlDirectories(data);
+		crawlDirectories(data, scanOutputRoot);
 	}
 
 	/**
@@ -34,13 +72,18 @@ public class AccuracyChecker {
 	 * Compares the data stored in the "output.json" file with the expected
 	 * data, and prints out the accuracy rate of each field.
 	 * 
-	 * @param expectedData
+	 * @param expectedData A map containing the actual verified data for each
+	 *        form. This map is stored as a map from a Client ID (representing
+	 *        the Client ID of a particular form) to a List of Strings that
+	 *        represent the correct values for each field within that form.
+	 * @param scanOutputRoot The root of the scan output directory; this folder
+	 *        should contain sub-folders for each form that was scanned.
 	 */
-	public static void crawlDirectories(Map<String, List<String>> expectedData) {
+	public static void crawlDirectories(Map<String, List<String>> expectedData, String scanOutputRoot) {
 
 		// Filter all items in CURRENT_FOLDER_PATH to select the
 		// sub-directories
-		Path dir = Paths.get(CURRENT_FOLDER_PATH);
+		Path dir = Paths.get(scanOutputRoot);
 		DirectoryStream.Filter<Path> filter = new DirectoryStream.Filter<Path>() {
 			public boolean accept(Path file) throws IOException {
 				return (Files.isDirectory(file));
@@ -56,7 +99,6 @@ public class AccuracyChecker {
 			// This loops through all sub-directories
 			for (Path entry : stream) {
 				// Get the client ID of the current sub-directory
-				System.out.println(entry.toString() + "\\clientID.txt");
 				Scanner clientIdScanner = new Scanner(new File(entry.toString() + "\\clientID.txt"));
 				String clientId = clientIdScanner.next();
 				clientIdScanner.close();
@@ -73,41 +115,25 @@ public class AccuracyChecker {
 				}
 				actualResult.remove(actualResult.size() - 1);
 				compareResults(actualResult, expectedResult, numCorrect, numTotal);
+			}
 
-				// JsonArray segments = clientIdObject.getJsonArray("segments");
-
-				/*
-				for (int s = 0; s < segments.size(); s++) {
-					JsonObject segment = segments.getJsonObject(s);
-					JsonArray items = segment.getJsonArray("items");
-					
-					
-					for (int i = 0; i < items.size(); i++) {
-						JsonObject item = items.getJsonObject(i);
-						JsonObject classification = item.getJsonObject("classification");
-						int classificationValue = classification.getInt("classification");
-						if (classificationValue >= 10 || classificationValue < 0) {
-							throw new IllegalStateException("classification value must be a single digit");
-						}
-						
-						System.out.println(classificationValue);
-					}
-				}*/
-				// Map<String, String> estimatedResults = getEstimatedResults();
-				// compare estimatedResults, actualResults.get(clientId)*/
+			// Print out final results
+			System.out.println("FINAL RESULTS");
+			for (int i = 0; i < numCorrect.length; i++) {
+				System.out.println("Index " + i + ": " + numCorrect[i] + "/" + numTotal[i] + " correct");
 			}
 		} catch (IOException x) {
 			System.err.println(x);
 		}
 	}
 
-	/**
+	/*
 	 * For a single instance of a form, compares the correct values of the form
 	 * (passed in as "expectedResult") with the results obtained by Scan after
 	 * it processes the form (passed in as "actualResult"). Note that
 	 * "actualResult" and "expectedResult" must have corresponding indexes; for
 	 * example, index 1 of actualResult and index 1 of expectedResult must
-	 * contain the result of the same field.
+	 * represent the result of the same field.
 	 * 
 	 * @requires No parameters are null, actualResult.size() ==
 	 *           expectedResult.size(), numCorrect.length ==
@@ -128,9 +154,10 @@ public class AccuracyChecker {
 
 			// Grab the correct expected value for that field in the form, as
 			// well as the value that Scan produced
-			String actual = trimTrailingZeroes(actualResult.get(i));
-			String expected = trimTrailingZeroes(expectedResult.get(i));
-			System.out.println("Field " + i + ": actual = " + actual + ", expected = " + expected);
+			// String actual = trimTrailingZeroes(actualResult.get(i));
+			// String expected = trimTrailingZeroes(expectedResult.get(i));
+			String actual = actualResult.get(i);
+			String expected = expectedResult.get(i);
 
 			// If either the expected or actual value of that field is null or
 			// empty, move on to the next field
@@ -164,14 +191,13 @@ public class AccuracyChecker {
 						int[] comparison = compareNumberStrings(actualDateSection, expectedDateSection);
 						numCorrect[i] += comparison[0];
 						numTotal[i] += comparison[1];
+						System.out.println("Field " + i + ": actual = " + actual + ", expected = " + expected + " ("
+						        + comparison[0] + "/" + comparison[1] + " correct)");
 					}
-				} else {
-					System.out.println("Expected date isn't formatted as a date: " + expected);
-					throw new IllegalArgumentException();
 				}
 			} else if (actual.charAt(0) == '[') {
 				// compare by words
-			} else if (actual.equals("yes") || actual.equals("no") || actual.equals("null")) {
+			} else if (actual.equals("yes") || actual.equals("no")) {
 				numTotal[i]++;
 				if (actual.equals(expected)) {
 					numCorrect[i]++;
@@ -180,8 +206,9 @@ public class AccuracyChecker {
 				int[] comparison = compareNumberStrings(actual, expected);
 				numCorrect[i] += comparison[0];
 				numTotal[i] += comparison[1];
+				System.out.println("Field " + i + ": actual = " + actual + ", expected = " + expected + " ("
+				        + comparison[0] + "/" + comparison[1] + " correct)");
 			}
-			System.out.println("Field " + i + ": Correct = " + numCorrect[i] + ", Total = " + numTotal[i]);
 		}
 	}
 
@@ -216,16 +243,15 @@ public class AccuracyChecker {
 				expectedIndex--;
 			}
 		}
-		System.out.println("Comparing \"" + actual + "\" with \"" + expected + "\". Correct = " + numSame + ", Total = "
-		        + numTotal);
 		return new int[] { numSame, numTotal };
 	}
 
 	/**
-	 * Trims any trailing zeroes from the given string.
+	 * Trims any leading zeroes from the given string. However, if a string
+	 * contains only zeroes, a String with a single "0" is returned.
 	 * 
-	 * @param s
-	 * @return
+	 * @param s The string to trim
+	 * @return A string without the leading zeroes
 	 */
 	public static String trimTrailingZeroes(String s) {
 		if (s == null) {
@@ -242,13 +268,18 @@ public class AccuracyChecker {
 		return s.substring(firstNonZeroCharIndex);
 	}
 
-	/**
+	/*
 	 * Attempts to determine if the given string represents a date.
+	 * 
+	 * @param s The string to analyze
+	 * @return true if the String can be parsed as a date
 	 */
-	public static boolean isDate(String s) {
+	private static boolean isDate(String s) {
 		if (s == null || s.length() <= 2) {
 			return false;
 		}
+
+		// Check to make sure there are two "slashes"
 		String[] parts = s.split("/");
 		if (parts.length != 3) {
 			return false;
@@ -268,6 +299,5 @@ public class AccuracyChecker {
 			}
 		}
 		return true;
-
 	}
 }

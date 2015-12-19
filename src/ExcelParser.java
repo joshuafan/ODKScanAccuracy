@@ -5,7 +5,7 @@ import org.apache.poi.xssf.usermodel.*;
 
 /**
  * A utility class that parses the Excel document to determine the correct
- * (expected) values that Scan should produce
+ * (expected) values that Scan should produce.
  */
 public class ExcelParser {
 	public static final int CLIENT_ID_COLUMN = 15;
@@ -27,6 +27,7 @@ public class ExcelParser {
 					int columnIndex = toIndex(colLetters);
 					System.out.println(getStringCellContent(firstRow.getCell(columnIndex)));
 				}
+				System.out.println("Number of rows: " + rows);
 				for (int r = 1; r < rows; r++) {
 					List<String> currentRowData = new ArrayList<String>();
 					XSSFRow row = sheet.getRow(r);
@@ -37,7 +38,6 @@ public class ExcelParser {
 					// Get the correct client ID from the table for that row
 					String clientId = AccuracyChecker
 					        .trimTrailingZeroes(getStringCellContent(row.getCell(CLIENT_ID_COLUMN)));
-
 					// Collect data from all specified columns
 					for (String colLetters : dataColumns) {
 						int columnIndex = toIndex(colLetters);
@@ -47,6 +47,7 @@ public class ExcelParser {
 					}
 					// Add this row to the map (with the clientID as a key)
 					data.put(clientId, currentRowData);
+					System.out.println("Excel client ID " + clientId);
 				}
 			}
 		} catch (Exception e) {

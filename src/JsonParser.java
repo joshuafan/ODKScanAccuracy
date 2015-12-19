@@ -41,7 +41,6 @@ public class JsonParser {
 		FileReader reader = null;
 		try {
 			reader = new FileReader(file);
-			System.out.println(file);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -54,9 +53,7 @@ public class JsonParser {
 		// corresponding object, and store its "value" in the list.
 		for (int i = 0; i < JSON_ARRAY_INDEXES.length; i++) {
 			JsonObject currentObject = array.getJsonObject(JSON_ARRAY_INDEXES[i]);
-			System.out.println("JSON Index: " + (JSON_ARRAY_INDEXES[i]));
 			String classificationValue = currentObject.getString("value");
-			System.out.println("Name: " + currentObject.getString("name") + "\tvalue: " + classificationValue);
 			actualData.add(classificationValue);
 		}
 		actualData.add(array.getJsonObject(3).getString("value"));
