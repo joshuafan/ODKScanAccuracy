@@ -22,16 +22,17 @@ import java.util.*;
 public class AccuracyChecker {
 	// private static final String CURRENT_FOLDER_PATH =
 	// "C:\\Users\\Joshua\\Downloads\\scanOutput";
+	private static final String EXCEL_FILE = "src/data/Master Excel_with column codes_a.xlsx";
 
 	// The letters of the Excel columns to check
-	private static final String[] EXCEL_DATA_COLUMNS = { /*"P", // client ID
-	                                                     "AA", // age
-	                                                     "AP", // EDD
-	                                                     "BB", // num_preg
-	                                                     "BM", // live_births
-	                                                     "BY", // regCCPF (bubble)*/
-	        "CK", // CCPF_form (bubble)
-			/*"CZ", // monthpreg_ANC
+	private static final String[] EXCEL_DATA_COLUMNS = { // "P" // client ID
+	        "AA", // age
+			/*"AP", // EDD
+			"BB", // num_preg
+			"BM", // live_births
+			"BY", // regCCPF (bubble)
+			"CK", // CCPF_form (bubble)
+			"CZ", // monthpreg_ANC
 			"DH", // ANC_v1
 			"EB", // ANC_v3
 			"EW", // TTV2
@@ -44,27 +45,20 @@ public class AccuracyChecker {
 	/**
 	 * Runs the Scan accuracy checker.
 	 * 
-	 * Note: for this program to build, you will need to download the Excel API
-	 * (https://poi.apache.org/download.html) and JSON APIs
-	 * (https://jsonp.java.net/download.html) for Java.
+	 * Command-line argument:
 	 * 
-	 * Command-line arguments:
-	 * 
-	 * [0]: The name of the Excel file.
-	 * 
-	 * [1]: The path to the root of the folder containing the Scan output. The
+	 * [0]: The path to the root of the folder containing the Scan output. The
 	 * folder should contain sub-folders for each form that was scanned.
 	 */
 	public static void main(String[] args) {
-		if (args.length != 2) {
-			System.out.println("Usage: <Excel file name> <Root of scan output folder>");
+		if (args.length != 1) {
+			System.out.println("Command-line argument: <Root of scan output folder>");
 			System.exit(1);
 		}
-		String correctFileName = args[0];
-		String scanOutputRoot = args[1];
-		// "src/data/Master Excel_with column codes_a.xlsx";
-		Map<String, List<String>> data = ExcelParser.parseCorrectFile(correctFileName, EXCEL_DATA_COLUMNS);
-		crawlDirectories(data, scanOutputRoot);
+		String scanOutputRoot = args[0];
+		Map<String, List<String>> expectedData = ExcelParser.parseCorrectFile(EXCEL_FILE, EXCEL_DATA_COLUMNS);
+		Map<String, List<String>> actualOutput = crawlDirectories(scanOutputRoot);
+		compareResults(actualOutput, expectedData);
 	}
 
 	/**
@@ -72,14 +66,11 @@ public class AccuracyChecker {
 	 * Compares the data stored in the "output.json" file with the expected
 	 * data, and prints out the accuracy rate of each field.
 	 * 
-	 * @param expectedData A map containing the actual verified data for each
-	 *        form. This map is stored as a map from a Client ID (representing
-	 *        the Client ID of a particular form) to a List of Strings that
-	 *        represent the correct values for each field within that form.
 	 * @param scanOutputRoot The root of the scan output directory; this folder
 	 *        should contain sub-folders for each form that was scanned.
+	 * @return A map containing the actual data outputted by Scan
 	 */
-	public static void crawlDirectories(Map<String, List<String>> expectedData, String scanOutputRoot) {
+	public static Map<String, List<String>> crawlDirectories(String scanOutputRoot) {
 
 		// Filter all items in CURRENT_FOLDER_PATH to select the
 		// sub-directories
@@ -90,10 +81,8 @@ public class AccuracyChecker {
 			}
 		};
 
-		// Build up records of the number of correct vs. total digits for each
-		// field
-		int[] numCorrect = new int[EXCEL_DATA_COLUMNS.length];
-		int[] numTotal = new int[EXCEL_DATA_COLUMNS.length];
+		Set<String> ids = new TreeSet<String>();
+		Map<String, List<String>> actualData = new HashMap<String, List<String>>();
 		try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, filter)) {
 
 			// This loops through all sub-directories
@@ -107,23 +96,81 @@ public class AccuracyChecker {
 				// correct results from the corresponding row in the Excel file
 				// (with the matching ClientID)
 				List<String> actualResult = JsonParser.parseActualJsonFile(entry.toString() + "\\output.json");
-				System.out.println("Client ID: " + clientId);
-				List<String> expectedResult = expectedData.get(clientId);
-				if (null == expectedResult) {
-					System.out.println("No matching Excel data for client ID " + clientId + "!");
-					continue;
+				System.out.println("Folder: " + entry.toString() + "\tClient ID: " + clientId);
+				if (!ids.add(clientId)) {
+					System.out.println("DUPLICATE ID " + clientId);
 				}
-				actualResult.remove(actualResult.size() - 1);
-				compareResults(actualResult, expectedResult, numCorrect, numTotal);
-			}
-
-			// Print out final results
-			System.out.println("FINAL RESULTS");
-			for (int i = 0; i < numCorrect.length; i++) {
-				System.out.println("Index " + i + ": " + numCorrect[i] + "/" + numTotal[i] + " correct");
+				actualData.put(clientId, actualResult);
 			}
 		} catch (IOException x) {
 			System.err.println(x);
+		}
+		return actualData;
+	}
+
+	/**
+	 * 
+	 * @param actual
+	 * @param expected A map containing the actual verified data for each form.
+	 *        This map is stored as a map from a Client ID (representing the
+	 *        Client ID of a particular form) to a List of Strings that
+	 *        represent the correct values for each field within that form.
+	 */
+	public static void compareResults(Map<String, List<String>> actual, Map<String, List<String>> expected) {
+		int[] numCorrect = new int[EXCEL_DATA_COLUMNS.length];
+		int[] numTotal = new int[EXCEL_DATA_COLUMNS.length];
+		for (String clientId : expected.keySet()) {
+			List<String> actualResults = actual.get(clientId);
+			if (actualResults == null) {
+				System.out.println("Client ID " + clientId + " is ONLY found in Excel file.");
+			} else {
+				List<String> expectedResults = expected.get(clientId);
+
+				String excelValue = expectedResults.get(1);
+				String actualValue = actualResults.get(0);
+				if (excelValue != null && !excelValue.equals(actualValue)) {
+					System.out.println("Client ID " + clientId + ": Scan discrepancy - excel " + excelValue + " vs. "
+					        + actualValue);
+				}
+				compareResults(actualResults, expectedResults, numCorrect, numTotal, clientId);
+			}
+		}
+
+		// Print out final results
+		System.out.println("FINAL RESULTS");
+		for (int i = 0; i < numCorrect.length; i++) {
+			System.out.println("Index " + i + ": " + numCorrect[i] + "/" + numTotal[i] + " correct");
+		}
+
+		Set<String> matching = new TreeSet<String>();
+		Set<String> onlyExcel = new TreeSet<String>();
+		Set<String> notInExcel = new TreeSet<String>();
+		for (String s : actual.keySet()) {
+			if (s != null && expected.containsKey(s)) {
+				matching.add(s);
+			} else {
+				notInExcel.add(s);
+			}
+		}
+		for (String s : expected.keySet()) {
+			if (s != null && !actual.containsKey(s))
+				onlyExcel.add(s);
+		}
+
+		System.out.println();
+		System.out.println("Matching Client IDs (" + matching.size() + "):");
+		for (String s : matching) {
+			System.out.println(s);
+		}
+		System.out.println();
+		System.out.println("Only in Excel file (" + onlyExcel.size() + "):");
+		for (String s : onlyExcel) {
+			System.out.println(s);
+		}
+		System.out.println();
+		System.out.println("Not in Excel file (" + notInExcel.size() + "):");
+		for (String s : notInExcel) {
+			System.out.println(s);
 		}
 	}
 
@@ -146,14 +193,15 @@ public class AccuracyChecker {
 	 *        characters for each field.
 	 */
 	public static void compareResults(List<String> actualResult, List<String> expectedResult, int[] numCorrect,
-	        int[] numTotal) {
+	        int[] numTotal, String clientId) {
 		assert actualResult.size() == expectedResult.size();
 
 		// Loop through each field in the form
-		for (int i = 0; i < expectedResult.size(); i++) {
+		for (int i = 0; i < actualResult.size(); i++) {
 
 			// Grab the correct expected value for that field in the form, as
-			// well as the value that Scan produced
+			// well as the value that Scan produced.
+
 			// String actual = trimTrailingZeroes(actualResult.get(i));
 			// String expected = trimTrailingZeroes(expectedResult.get(i));
 			String actual = actualResult.get(i);
@@ -161,16 +209,15 @@ public class AccuracyChecker {
 
 			// If either the expected or actual value of that field is null or
 			// empty, move on to the next field
-			if (actual == null || actual.length() == 0 || actual.equals("null") || expected == null
-			        || expected.length() == 0 || expected.equals("null")) {
+			if (actual == null || expected == null || expected.equals("null")) {
 				continue;
 			}
 
 			// If the strings represent dates, process them
-			if (isDate(actual)) {
+			if (isDate(expected)) {
 				String[] actualDate = actual.split("/");
 				String[] expectedDate = expected.split("/");
-				if (isDate(expected)) {
+				if (isDate(actual)) {
 					for (int j = 0; j < actualDate.length; j++) {
 						String actualDateSection = actualDate[j];
 						String expectedDateSection = expectedDate[j];
@@ -195,21 +242,39 @@ public class AccuracyChecker {
 						        + comparison[0] + "/" + comparison[1] + " correct)");
 					}
 				}
-			} else if (actual.charAt(0) == '[') {
+			} else if (expected.length() > 0 && expected.charAt(0) == '[') {
 				// compare by words
-			} else if (actual.equals("yes") || actual.equals("no")) {
-				numTotal[i]++;
-				if (actual.equals(expected)) {
-					numCorrect[i]++;
-				}
-			} else {
+			} else if (isNumber(expected)) {
 				int[] comparison = compareNumberStrings(actual, expected);
 				numCorrect[i] += comparison[0];
 				numTotal[i] += comparison[1];
-				System.out.println("Field " + i + ": actual = " + actual + ", expected = " + expected + " ("
+				System.out.println("ClientId " + clientId + ": actual = " + actual + ", expected = " + expected + " ("
 				        + comparison[0] + "/" + comparison[1] + " correct)");
+			} else {
+				numTotal[i]++;
+				if (actual.trim().equals(expected.trim())
+				        || (expected.trim().equals("null") && actual.trim().equals(""))) {
+					numCorrect[i]++;
+					System.out
+					        .println("Field " + i + ": actual = " + actual + ", expected = " + expected + " (correct)");
+				} else {
+					System.out.println("Field " + i + ": actual = " + actual + ", expected = " + expected + " (wrong)");
+				}
+
 			}
 		}
+	}
+
+	/*
+	 * Returns true iff the string contains at least one numerical character.
+	 */
+	private static boolean isNumber(String s) {
+		for (int i = 0; i < s.length(); i++) {
+			if (s.charAt(i) >= '0' && s.charAt(i) <= '9') {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/*
@@ -226,15 +291,15 @@ public class AccuracyChecker {
 		int actualIndex = actual.length() - 1;
 		int expectedIndex = expected.length() - 1;
 		while (actualIndex >= 0 && expectedIndex >= 0) {
-			// Ignore non-alphabetic characters
-			if (actual.charAt(actualIndex) < '0' || actual.charAt(actualIndex) > '9') {
+			// Ignore characters that we expect to be non-numeric
+			if (expected.charAt(expectedIndex) < '0' || expected.charAt(expectedIndex) > '9') {
 				actualIndex--;
 				expectedIndex--;
 				continue;
 			}
 			if (actual.charAt(actualIndex) == expected.charAt(expectedIndex)) {
-				numTotal++;
 				numSame++;
+				numTotal++;
 				actualIndex--;
 				expectedIndex--;
 			} else {

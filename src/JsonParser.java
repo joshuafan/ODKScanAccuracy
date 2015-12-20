@@ -12,21 +12,21 @@ public class JsonParser {
 	// The indices of the JSON array that we are examining. NOTE that the values
 	// of these indexes are ONE LESS than the "value" field in the actual JSON
 	// document for each entry, to account for zero-based indexing.
-	private static final int[] JSON_ARRAY_INDEXES = { 3, // client ID
+	private static final int[] JSON_ARRAY_INDEXES = { // 3 // client ID
 	        5, // age
-	        7, // EDD
-	        8, // num_preg
-	        9, // live_births
-	        10, // regCCPF (bubble)
-	        11, // CCPFform (bubble)
-	        13, // monthpreg_ANC
-	        14, // ANC_v1
-	        16, // ANC_v3
-	        20, // TTV2
-	        28, // health_cond (bubble many)
-	        35, // date_delivery
-	        47, // V1_topics (bubble many)
-	        48 // V2_date
+			/*7, // EDD
+			8, // num_preg
+			9, // live_births
+			10, // regCCPF (bubble)
+			11, // CCPFform (bubble)
+			/*13, // monthpreg_ANC
+			14, // ANC_v1
+			16, // ANC_v3
+			20, // TTV2
+			28, // health_cond (bubble many)
+			35, // date_delivery
+			47, // V1_topics (bubble many)
+			48 // V2_date*/
 	};
 
 	/**
@@ -53,10 +53,10 @@ public class JsonParser {
 		// corresponding object, and store its "value" in the list.
 		for (int i = 0; i < JSON_ARRAY_INDEXES.length; i++) {
 			JsonObject currentObject = array.getJsonObject(JSON_ARRAY_INDEXES[i]);
+			String type = currentObject.getString("type");
 			String classificationValue = currentObject.getString("value");
 			actualData.add(classificationValue);
 		}
-		actualData.add(array.getJsonObject(3).getString("value"));
 		return actualData;
 	}
 }

@@ -46,8 +46,13 @@ public class ExcelParser {
 						currentRowData.add(value);
 					}
 					// Add this row to the map (with the clientID as a key)
+					if (data.containsKey(clientId)) {
+						System.out.println("DUPLICATE EXCEL ID " + clientId);
+					}
+					XSSFCell actualExcelValue = row.getCell(toIndex("Z"));
+					currentRowData.add(getStringCellContent(actualExcelValue));
 					data.put(clientId, currentRowData);
-					System.out.println("Excel client ID " + clientId);
+					System.out.println("Excel client ID " + clientId + " value: " + currentRowData.get(0));
 				}
 			}
 		} catch (Exception e) {
