@@ -408,9 +408,11 @@ public class AccuracyChecker {
 
 	/*
 	 * If the given string has less than 5 digits, pad it on the left with
-	 * zeroes so that it has a length of 5.
+	 * zeroes so that it has a length of 5. Also, replaces any spaces with
+	 * the character 0.
 	 */
 	private static String padWithZeroes(String s) {
+		s = s.replace(' ', '0');
 		if (s.length() >= 5) {
 			return s;
 		}
