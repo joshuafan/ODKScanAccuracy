@@ -224,8 +224,6 @@ public class AccuracyChecker {
 	 *         total number of digits in index 1
 	 */
 	public static int[] compareSingleResult(String actual, String expected, String[][] bubbleOptions) {
-		actual = actual.trim();
-		expected = expected.trim();
 
 		// If either the expected or actual value of that field is null or
 		// empty, ignore it
@@ -332,13 +330,15 @@ public class AccuracyChecker {
 		int actualIndex = actual.length() - 1;
 		int expectedIndex = expected.length() - 1;
 		while (actualIndex >= 0 && expectedIndex >= 0) {
-			// Ignore characters that we expect to be non-numeric
-			if (expected.charAt(expectedIndex) < '0' || expected.charAt(expectedIndex) > '9') {
+			// Ignore characters that we expect to be non-numeric (and
+			// non-space)
+			char expectedChar = expected.charAt(expectedIndex);
+			if (expectedChar != ' ' && (expectedChar < '0' || expectedChar > '9')) {
 				actualIndex--;
 				expectedIndex--;
 				continue;
 			}
-			if (actual.charAt(actualIndex) == expected.charAt(expectedIndex)) {
+			if (actual.charAt(actualIndex) == expectedChar) {
 				numSame++;
 				numTotal++;
 				actualIndex--;
