@@ -8,11 +8,8 @@ import java.util.*;
  * (listed in an Excel file). Then, prints out statistics on how accurately Scan
  * was able to read/process the forms.
  * 
- * Note: for this program to build, you will need to download Apache's POI Excel
- * API (https://poi.apache.org/download.html) and the JSON Processing API
- * (https://jsonp.java.net/download.html), and reference those in the project.
- * 
- * In particular, you will need to reference these libraries:
+ * Note: for this program to build, you you will need to reference these
+ * libraries (contained inside the "lib" folder):
  * 
  * poi-3.13/poi-3.13-20150929.jar, poi-3.13/poi-ooxml-3.13-20150929.jar,
  * poi-3.13/poi-ooxml-schemas-3.13-20150929.jar,
@@ -43,13 +40,18 @@ public class AccuracyChecker {
             "JH" // V2_date
     };
 
+    // Whether each field is a bubble field or not.
+    private static final boolean[] IS_BUBBLE = { false, false, false, false, false, true, true, false, false, false,
+            false, true, false, true, false };
+
+    // Hard-coded strings for the bubble fields
     private static final String[] COLUMN_NAMES = { "client_id", "age", "EDD", "num_preg", "live_births", "regCCPF",
             "CCPF_form", "monthpreg_ANC", "ANC_v1", "ANC_v3", "TTV2", "health_cond", "date_delivery", "V1_topics",
             "V2_date" };
 
     private static final String[][] HEALTH_CONDITIONS = { { "1", "hypertension/pre-eclampsia" }, { "2", "diabetes" },
             { "3", "under the age of 20" }, { "4", "underweight" }, { "5", "carrying twins or triplets" },
-            { "6", "history of preterm delivery" }, { "7", "history of stillbirth or neonatal birth" },
+            { "6", "history of preterm delivery" }, { "7", "history of stillbirth or neonatal death" },
             { "8", "other1" }, { "9", "other2" } };
 
     private static final String[][] V1_TOPICS = { { "1", "pregnancy danger signs" }, { "2", "malaria prophylaxis" },
@@ -78,7 +80,7 @@ public class AccuracyChecker {
                 EXCEL_DATA_COLUMNS);
 
         // Get the actual data outputted by Scan
-        Map<String, List<String>> actualOutput = JsonParser.crawlDirectories(scanOutputRoot);
+        Map<String, ScanOutput> actualOutput = JsonParser.crawlDirectories(scanOutputRoot);
 
         // Compare the results and print out statistics
         compareResults(actualOutput, expectedData);
@@ -90,38 +92,76 @@ public class AccuracyChecker {
      * 
      * @param actual A map containing the actual data produced by Scan. This map
      *        is stored as a map from a Client ID (representing the Client ID of
-     *        a particular form) to a List of Strings that represent the values
-     *        that Scan read for each field within that form.
+     *        a particular form) to a ScanOutput object containing the list of
+     *        values read by Scan for each field, as well as the name of the
+     *        output folder.
      * @param expected A map containing the expected verified data for each
      *        form. This map is stored as a map from a Client ID (representing
      *        the Client ID of a particular form) to a List of Strings that
      *        represent the correct values for each field within that form.
      */
-    public static void compareResults(Map<String, List<String>> actual, Map<String, List<String>> expected) {
+    public static void compareResults(Map<String, ScanOutput> actual, Map<String, List<String>> expected) {
         // Contains the number of correct/total digits for the i-th field
+        /*int[] numCorrectLittle = new int[EXCEL_DATA_COLUMNS.length];
+        int[] numCorrectModerate = new int[EXCEL_DATA_COLUMNS.length];
+        int[] numCorrectMajor = new int[EXCEL_DATA_COLUMNS.length];
+        int[] numTotalLittle = new int[EXCEL_DATA_COLUMNS.length];
+        int[] numTotalModerate = new int[EXCEL_DATA_COLUMNS.length];
+        int[] numTotalMajor = new int[EXCEL_DATA_COLUMNS.length];*/
+
         int[] numCorrect = new int[EXCEL_DATA_COLUMNS.length];
         int[] numTotal = new int[EXCEL_DATA_COLUMNS.length];
+
+        /*Set<String> littleShadow = FolderUtils
+                .getClientIds("C:\\Users\\Joshua\\Downloads\\ScanPreAlignedImages\\shadow-little");
+        Set<String> moderateShadow = FolderUtils
+                .getClientIds("C:\\Users\\Joshua\\Downloads\\ScanPreAlignedImages\\shadow-moderate");
+        Set<String> majorShadow = FolderUtils
+                .getClientIds("C:\\Users\\Joshua\\Downloads\\ScanPreAlignedImages\\shadow-major");*/
+
+        /*for (String clientId : littleShadow) {
+            List<String> actualResults = actual.get(clientId);
+            List<String> expectedResults = expected.get(clientId);
+            if (null != actualResults && null != expectedResults) {
+                compareResults(actualResults, expectedResults, numCorrectLittle, numTotalLittle, clientId);
+                comps++;
+            }
+        }
+        for (String clientId : moderateShadow) {
+            List<String> actualResults = actual.get(clientId);
+            List<String> expectedResults = expected.get(clientId);
+            if (null != actualResults && null != expectedResults) {
+                compareResults(actualResults, expectedResults, numCorrectModerate, numTotalModerate, clientId);
+                comps++;
+            }
+        }
+        for (String clientId : majorShadow) {
+            List<String> actualResults = actual.get(clientId);
+            List<String> expectedResults = expected.get(clientId);
+            if (null != actualResults && null != expectedResults) {
+                compareResults(actualResults, expectedResults, numCorrectMajor, numTotalMajor, clientId);
+                comps++;
+            }
+        }*/
 
         // Loop through all client IDs in the expected data set, and try to find
         // a matching client ID in the actual data set. If there is a match,
         // compare these results.
         for (String clientId : expected.keySet()) {
-            List<String> actualResults = actual.get(clientId);
-            if (null != actualResults) {
+            ScanOutput output = actual.get(clientId);
+            if (null != output) {
+                List<String> actualResults = output.outputData;
                 List<String> expectedResults = expected.get(clientId);
-                compareResults(actualResults, expectedResults, numCorrect, numTotal, clientId);
+                compareResults(actualResults, expectedResults, numCorrect, numTotal, clientId, output.folderName);
             }
         }
 
-        // Print out final results
-        System.out.println();
-        System.out.println("FINAL RESULTS:");
-        for (int i = 0; i < numCorrect.length; i++) {
-            double percentage = numCorrect[i] * 100.0 / numTotal[i];
-            System.out.printf("Field " + i + " (" + COLUMN_NAMES[i] + "): " + numCorrect[i] + "/" + numTotal[i]
-                    + " correct (%.2f%%)\n", percentage);
-        }
+        /*printResults(numCorrectLittle, numTotalLittle, "Little shadow");
+        printResults(numCorrectModerate, numTotalModerate, "Moderate shadow");
+        printResults(numCorrectMajor, numTotalMajor, "Major shadow");*/
+        printResults(numCorrect, numTotal, "TOTAL");
 
+        // Stats on how many client IDs we were able to match
         Set<String> matching = new TreeSet<String>();
         Set<String> onlyExcel = new TreeSet<String>();
         Set<String> notInExcel = new TreeSet<String>();
@@ -143,6 +183,47 @@ public class AccuracyChecker {
         System.out.println("Not in Excel file: " + notInExcel.size());
     }
 
+    /**
+     * Print out final results.
+     * 
+     * @param numCorrect number of correct digits or bubbles for each attribute
+     * @param numTotal number of total digits or bubbles for each attribute
+     * @param s String describing results
+     */
+    public static void printResults(int[] numCorrect, int[] numTotal, String s) {
+        System.out.println();
+        System.out.println("Final Results: " + s);
+        int bubbleCorrect = 0;
+        int bubbleTotal = 0;
+        int digitCorrect = 0;
+        int digitTotal = 0;
+
+        for (int i = 0; i < numCorrect.length; i++) {
+            double percentage = numCorrect[i] * 100.0 / numTotal[i];
+            String type = "digit";
+            if (IS_BUBBLE[i]) {
+                type = "bubble";
+            }
+            System.out.printf("Field " + i + " (" + COLUMN_NAMES[i] + ": " + type + "): " + numCorrect[i] + "/"
+                    + numTotal[i] + " correct (%.2f%%)\n", percentage);
+            if (IS_BUBBLE[i]) {
+                bubbleCorrect += numCorrect[i];
+                bubbleTotal += numTotal[i];
+            } else {
+                digitCorrect += numCorrect[i];
+                digitTotal += numTotal[i];
+            }
+        }
+
+        // Print out overall combined stats for bubble and digit fields
+        System.out.println();
+        double bubblePercentage = bubbleCorrect * 100.0 / bubbleTotal;
+        System.out.printf("BUBBLE FIELDS: " + bubbleCorrect + "/" + bubbleTotal + " correct (%.2f%%)\n",
+                bubblePercentage);
+        double digitPercentage = digitCorrect * 100.0 / digitTotal;
+        System.out.printf("DIGIT FIELDS: " + digitCorrect + "/" + digitTotal + " correct (%.2f%%)\n", digitPercentage);
+    }
+
     /*
      * For a single instance of a form, compares the correct values of the form
      * (passed in as "expectedResult") with the results obtained by Scan after
@@ -160,12 +241,14 @@ public class AccuracyChecker {
      *        digits for each field.
      * @param numTotal An output array that will hold the number of total
      *        characters for each field.
+     * @param clientId The client ID of this form instance
+     * @param folderName The output folder associated with this form instance
      */
     public static void compareResults(List<String> actualResult, List<String> expectedResult, int[] numCorrect,
-            int[] numTotal, String clientId) {
+            int[] numTotal, String clientId, String folderName) {
         assert actualResult.size() == expectedResult.size();
 
-        System.out.println("CLIENT ID " + clientId);
+        System.out.println("CLIENT ID " + clientId + " (Output folder: " + folderName + ")");
 
         // Loop through each field in the form
         for (int i = 0; i < actualResult.size(); i++) {
@@ -181,7 +264,8 @@ public class AccuracyChecker {
                 continue;
             }
 
-            // If this is a bubble field, tell the program what the options were
+            // If this is a "select-many" bubble field, tell the program what
+            // the options were
             String[][] bubbleOptions = null;
             if (i == 11) {
                 bubbleOptions = HEALTH_CONDITIONS;
@@ -199,8 +283,13 @@ public class AccuracyChecker {
 
             // Compare results
             int[] comparison = compareSingleResult(actual, expected, bubbleOptions);
-            System.out.println("Field " + i + " (" + COLUMN_NAMES[i] + "): actual = " + actual + ", expected = "
-                    + expected + " (" + comparison[0] + "/" + comparison[1] + " correct)");
+
+            // If results were different (# total != # correct), print the
+            // discrepancy
+            if (comparison[0] != comparison[1]) {
+                System.out.println("Field " + i + " (" + COLUMN_NAMES[i] + "): actual = " + actual + ", expected = "
+                        + expected + " (" + comparison[0] + "/" + comparison[1] + " correct)");
+            }
             numCorrect[i] += comparison[0];
             numTotal[i] += comparison[1];
         }
@@ -251,6 +340,7 @@ public class AccuracyChecker {
                 String numericalCode = bubbleOptions[i][0];
                 boolean expectedContains = Arrays.asList(selectedBubblesExpected).contains(numericalCode);
                 String bubbleText = bubbleOptions[i][1];
+                // boolean expectedContains = expected.contains(bubbleText);
                 boolean actualContains = actual.contains(bubbleText);
 
                 // Check if the recorded "bubble status" matches what we expect
@@ -420,7 +510,7 @@ public class AccuracyChecker {
      * zeroes so that it has a length of 5. Also, replaces any spaces with
      * the character 0.
      */
-    private static String padWithZeroes(String s) {
+    public static String padWithZeroes(String s) {
         s = s.replace(' ', '0');
         if (s.length() >= 5) {
             return s;

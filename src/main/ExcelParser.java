@@ -66,6 +66,16 @@ public class ExcelParser {
                         continue;
                     }
 
+                    // Throw out ones in light pencil or user error
+                    /*int notesIndex = toIndex("T");
+                    XSSFCell cellT = row.getCell(notesIndex);
+                    String valueT = getStringCellContent(cellT);
+                    if (valueT != null) {
+                        if ((valueT.contains("pencil") && valueT.contains("light")) || valueT.contains("error")) {
+                            continue;
+                        }
+                    }*/
+
                     // Collect data from all specified columns and put each
                     // piece of data into the List
                     for (String colLetters : dataColumns) {
@@ -90,7 +100,7 @@ public class ExcelParser {
     /*
      * Reads an XSSFWorkbook object from the given Excel file.
      */
-    private static XSSFWorkbook readFile(String filename) throws IOException {
+    static XSSFWorkbook readFile(String filename) throws IOException {
         FileInputStream fis = new FileInputStream(filename);
         try {
             return new XSSFWorkbook(fis);
@@ -102,7 +112,7 @@ public class ExcelParser {
     /*
      * Gets a String version of the contents of the given cell.
      */
-    private static String getStringCellContent(XSSFCell cell) {
+    static String getStringCellContent(XSSFCell cell) {
         if (null == cell) {
             return "";
         }
@@ -136,7 +146,7 @@ public class ExcelParser {
      *           upper-case alphabetic characters
      * @return The integer index of the column
      */
-    private static int toIndex(String columnLetters) {
+    static int toIndex(String columnLetters) {
         int total = 0;
         int power = 1;
         for (int i = columnLetters.length() - 1; i >= 0; i--) {

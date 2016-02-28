@@ -34,19 +34,20 @@ public class JsonParser {
 
     /**
      * Crawls entire "output" directory by going through each sub-directory.
-     * Parses the data stored in each "output.json" file, and returns the data
-     * as a Map from each Client ID to a List of Strings representing the values
-     * of each field for that client ID's form. Note that if there are duplicate
-     * client IDs, neither duplicate entry is included.
+     * Parses the data stored in each "output.json" file, and returns a map from
+     * each Client ID to a ScanOutput object that encapsulates the data
+     * outputted by Scan. Note that if there are duplicate client IDs, neither
+     * duplicate entry is included.
      * 
      * @param scanOutputRoot The root of the scan output directory; this folder
      *        should contain sub-folders for each form that was scanned.
-     * @return A map containing the actual data outputted by Scan, mapping from
-     *         each Client ID to a List of Strings representing the values of
-     *         each field for that client ID's form. (Does NOT contain records
-     *         for any client ID that was duplicated.)
+     * @return a map from each Client ID to a ScanOutput object that
+     *         encapsulates the data outputted by Scan, including Scan's
+     *         predictions for the values of different fields, as well as the
+     *         name of the output folder. (Does NOT contain records for any
+     *         client ID that was duplicated.)
      */
-    public static Map<String, List<String>> crawlDirectories(String scanOutputRoot) {
+    public static Map<String, ScanOutput> crawlDirectories(String scanOutputRoot) {
 
         // Filter all items in CURRENT_FOLDER_PATH to select the
         // sub-directories
@@ -60,7 +61,7 @@ public class JsonParser {
         // We don't want to include any client IDs that appear multiple times,
         // so keep track of those
         Set<String> duplicateClientIds = new TreeSet<String>();
-        Map<String, List<String>> actualData = new HashMap<String, List<String>>();
+        Map<String, ScanOutput> actualData = new HashMap<String, ScanOutput>();
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, filter)) {
 
             // Loop through all sub-directories
@@ -86,7 +87,11 @@ public class JsonParser {
                 if (duplicateClientIds.contains(clientId)) {
                     continue;
                 }
-                actualData.put(clientId, actualResult);
+
+                // Place Scan's results, as well as the name of the output
+                // folder, inside a ScanOutput object
+                ScanOutput output = new ScanOutput(actualResult, entry.getFileName().toString());
+                actualData.put(clientId, output);
             }
         } catch (IOException x) {
             System.err.println(x);
